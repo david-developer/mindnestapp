@@ -1,0 +1,23 @@
+const pool = require('../config/db')
+
+const createTables = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users(
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(150) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                date_of_birth DATE,
+                created_at TIMESTAMP DEFAULT NOW()
+             )
+        `)
+        console.log('User Table Created')
+        process.exit(0)
+    } catch (err)   {
+        console.error('Migration Failed:', err.message)
+        process.exit(1)
+    }
+}
+
+createTables()
