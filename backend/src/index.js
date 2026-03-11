@@ -15,6 +15,7 @@ app.get('/', (req, res) =>{
     res.json({message: 'MindNest API is running'})
 })
 
+// database health check
 app.get('/health', async (req, res) => {
     try{
         await pool.query('SELECT 1')
