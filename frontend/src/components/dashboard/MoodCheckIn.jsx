@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import API from '../../api/axios'
 
 // mood levels mapped to emoji and labels
 const MOOD_LEVELS = [
@@ -21,6 +22,8 @@ export default function MoodCheckIn({ user }) {
     const [moodValue, setMoodValue] = useState(3) //slider value 1-6, starts at the middle
     const [selectedTags, setSelectedTags] = useState([])
     const [submitted, setSubmitted] = useState(false) //constrols whether the card has been submitted
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
     //get the mood object that matches current slider value
     const currentMood = MOOD_LEVELS.find(m => m.value === moodValue)
@@ -34,9 +37,25 @@ export default function MoodCheckIn({ user }) {
         })
     }
 
-    const handleSubmit = () => {
-        console.log('submitting mood:', { moodValue, selectedTags })
-        setSubmitted(true)
+    const handleSubmit = async () => {
+        setLoading(true)
+        setError('')
+
+        try {
+            // setnd check-in data to backend
+            await API.post('/mood/checkin', {
+                mood_value: moodValue,
+                tags: selectedTags,
+                note: ''
+            })
+            setSubmitted(true)
+        }catch (err) {
+            setError('Could not save check-in. Please try again.')
+        }finally {
+            setLoading(false)
+        }
+        //console.log('submitting mood:', { moodValue, selectedTags })
+        
     }
 
     //show success state after submission
@@ -63,6 +82,7 @@ export default function MoodCheckIn({ user }) {
 
             {/* mood emoji + label. Updates as slider moves */}
             <div className="flex flex-col items-center mb-4">
+                {/*<span className="text-5xl mb-1">{currentMood.emoji}</span>*/}
                 <span
                   className="font-bold text-lg transition-all duration-200"
                   style={{ color: currentMood.color}}
@@ -116,6 +136,11 @@ export default function MoodCheckIn({ user }) {
                     })}
                 </div>
             </div>
+
+            {/* shows error if save failed*/}
+            {error && (
+                <p className="text-red-500 text-sm mb-3">{error}</p>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-2">
