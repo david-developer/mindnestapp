@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const pool = require('./config/db')
 const authRoutes = require('./routes/auth')
+const moodRoutes = require('./routes/mood')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -10,6 +11,7 @@ app.use(cors())
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/mood', moodRoutes)
 
 app.get('/', (req, res) =>{
     res.json({message: 'MindNest API is running'})
