@@ -28,6 +28,18 @@ const createTables = async () => {
         `)
         console.log('✅ Mood checkins table created')
         
+        //journal_entries table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS journal_entries (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+              title TEXT,
+              content TEXT NOT NULL,
+              checkin_id INTEGER REFERENCES mood_checkins(id) ON DELETE SET NULL,
+              created_at TIMESTAMP DEFAULT NOW()
+            )
+          `)
+          console.log('✅ Journal entries table created')
 
 
         process.exit(0)
