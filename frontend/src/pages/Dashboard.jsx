@@ -1,26 +1,27 @@
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"
 import Header from '../components/dashboard/Header'
 import BottomNav from '../components/dashboard/BottomNav'
 import MoodCheckIn from '../components/dashboard/MoodCheckIn'
+import WeeklySparkline from "../components/dashboard/WeeklySparkline"
 
 export default function Dashboard() {
   const { user } = useAuth()
 
   return (
     // overall page background using design system color
+    <div className="min-h-screen" style={{ backgroundColor: '#FBFBFD' }}>
 
-    <div className="min-h-screen bg-gray-50" style={{ backgroundColor: '#FBFBFD'}}>
+      {/* sticky header with streak placeholder */}
+      <Header user={user} streak={0} />
 
-    {/* Sticly header*/}
-    <Header user={user} />
+      {/* main scrollable content */}
+      <main className="max-w-lg mx-auto px-4 pt-4 pb-24 space-y-4">
+        <MoodCheckIn user={user} />
+        <WeeklySparkline />
+      </main>
 
-    {/* Main scrollable content */}
-    <main className="max-w-lg mx-auto px-4 pt-4 pb-24 space-y-4">
-      <MoodCheckIn user={user} />
-    </main>
-
-    {/*fixed bottom navigation bar */}
-    <BottomNav />
-  </div>
+      {/* fixed bottom navigation bar */}
+      <BottomNav />
+    </div>
   )
 }

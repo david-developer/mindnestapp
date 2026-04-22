@@ -38,4 +38,29 @@ const getCheckins = async (req, res) => {
   }
 }
 
-module.exports = { createCheckin, getCheckins }
+// get last 7 days of check-ins with daily averages
+const getWeeklyMood = async (req, res) => {
+  const userId = req.user.userId
+
+  try {
+    const result = await pool.query(
+      // date_trunc groups checkins by day, AVD dets the daily average
+      `SELECT
+        DATE_TRUNC('day', created_at) AS day, 
+        ROUND(AVG(mood_value)::numeric, 2) AS avg_mood,
+        COUNT(*) AS checkin_count
+      FROM mood_checkins
+      WHERE user_id = $1
+        AND created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY day
+      ORDER BY day ASC`,
+      [userId]
+    )
+
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message})
+  }
+}
+
+module.exports = { createCheckin, getCheckins, getWeeklyMood }
