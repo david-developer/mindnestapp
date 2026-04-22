@@ -4,6 +4,7 @@ import BottomNav from '../components/dashboard/BottomNav'
 import MoodCheckIn from '../components/dashboard/MoodCheckIn'
 import WeeklySparkline from "../components/dashboard/WeeklySparkline"
 import ProgressRewards from "../components/dashboard/ProgressRewards"
+import ResourcesHelp from '../components/dashboard/ResourcesHelp'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -20,6 +21,7 @@ export default function Dashboard() {
         <MoodCheckIn user={user} />
         <WeeklySparkline />
         <ProgressRewards />
+        <ResourcesHelp />
       </main>
 
       {/* fixed bottom navigation bar */}
