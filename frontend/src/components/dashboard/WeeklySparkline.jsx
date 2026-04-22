@@ -110,7 +110,7 @@ const moodSummary = getMoodLabel(avgValue)
         </div>
       ) : (
         <div className="h-32 -mx-2">
-          {/* ResponsiveContainer makes chart adapt to parent width */}
+          {/* ResponsiveContainer making chart adapt to parent width */}
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               {/* gradient fill under the line */}

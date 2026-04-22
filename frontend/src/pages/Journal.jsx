@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react'
 import API from '../api/axios'
 import BottomNav from '../components/dashboard/BottomNav'

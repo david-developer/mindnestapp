@@ -63,4 +63,78 @@ const getWeeklyMood = async (req, res) => {
   }
 }
 
-module.exports = { createCheckin, getCheckins, getWeeklyMood }
+// calculate the current consecutive-day streak for the logged-in user
+const getStreak = async (req, res) => {
+  const userId = req.user.userId
+
+  try {
+    // get all distinct days the user has checked in, newest first
+    const result = await pool.query(
+      `SELECT DISTINCT DATE_TRUNC('day', created_at) AS day
+       FROM mood_checkins
+       WHERE user_id = $1
+       ORDER BY day DESC`,
+      [userId]
+    )
+
+    const days = result.rows.map(r => new Date(r.day))
+
+    // get today and yesterday as date-only objects for comparison
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    let streak = 0
+
+    // start from today and walk backwards through consecutive days
+    for (let i = 0; i < days.length; i++) {
+      const expected = new Date(today)
+      expected.setDate(expected.getDate() - i)
+
+      const checkinDay = days[i]
+      checkinDay.setHours(0, 0, 0, 0)
+
+      // allow the first day to be either today or yesterday
+      // this way a user who hasn't checked in yet today doesn't lose streak
+      if (i === 0) {
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        if (checkinDay.getTime() === today.getTime()) {
+          streak = 1
+          continue
+        } else if (checkinDay.getTime() === yesterday.getTime()) {
+          // reset "expected" baseline to yesterday so next iteration checks day before
+          streak = 1
+          today.setDate(today.getDate() - 1)
+          continue
+        } else {
+          // neither today nor yesterday = no current streak
+          break
+        }
+      }
+
+      // for subsequent days, check if it matches the expected previous day
+      if (checkinDay.getTime() === expected.getTime()) {
+        streak++
+      } else {
+        break
+      }
+    }
+
+    // also return total count for the badges card
+    const totalResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM mood_checkins WHERE user_id = $1`,
+      [userId]
+    )
+
+    res.json({
+      streak,
+      total_checkins: Number(totalResult.rows[0].total),
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+module.exports = { createCheckin, getCheckins, getWeeklyMood, getStreak }
+

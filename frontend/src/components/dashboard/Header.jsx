@@ -1,7 +1,10 @@
+/* eslint-disable no-unused-vars */
+import { useState, useEffect} from "react"
 import { useAuth } from "../../context/AuthContext"
 import { Plus, BookOpen, Share2, LogOut } from "lucide-react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
+import API from '../../api/axios'
 
 // returns greeting based on current time of day
 function getGreeting() {
@@ -11,9 +14,16 @@ function getGreeting() {
   return "Evening"
 }
 
-export default function Header({ user, streak = 0 }) {
+export default function Header({ user }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const [streak, setStreak] = useState(0)
+
+  useEffect(() => {
+    API.get('/mood/streak')
+        .then(res => setStreak(res.data.streak))
+        .catch(() => setStreak(0))
+  }, [])
 
   // get just the first name for the greeting
   const firstName = user?.name?.split(' ')[0] || 'Friend'
