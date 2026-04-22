@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoutes'
+import Journal from './pages/Journal'
 
 export default function APP(){
   return (
@@ -14,8 +15,14 @@ export default function APP(){
           <Dashboard />
         </PrivateRoute>
         } />
-        <Route path="*" element={<Navigate to="/login" />} />
-      </Routes>
+      <Route path="*" element={<Navigate to="/login" />} />
+      <Route path="/journal" element={
+        <PrivateRoute>
+          <Journal />
+        </PrivateRoute>
+      } />
+
+    </Routes>
     )
   }
 

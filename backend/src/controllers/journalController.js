@@ -37,8 +37,8 @@ const getEntries = async (req, res) => {
 
 // delete a journal entry by id
 const deleteEntry = async (req, res) => {
-    const userId = req.user.userId  // ← req not res
-    const { id } = req.params       // ← id from URL parameter
+    const userId = req.user.userId  
+    const { id } = req.params     
   
     try {
       const result = await pool.query(
