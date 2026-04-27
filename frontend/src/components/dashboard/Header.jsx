@@ -14,7 +14,7 @@ function getGreeting() {
   return "Evening"
 }
 
-export default function Header({ user }) {
+export default function Header({ user, refreshKey }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [streak, setStreak] = useState(0)
@@ -23,7 +23,7 @@ export default function Header({ user }) {
     API.get('/mood/streak')
         .then(res => setStreak(res.data.streak))
         .catch(() => setStreak(0))
-  }, [])
+  }, [refreshKey])
 
   // get just the first name for the greeting
   const firstName = user?.name?.split(' ')[0] || 'Friend'

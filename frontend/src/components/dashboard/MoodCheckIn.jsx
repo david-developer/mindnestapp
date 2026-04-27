@@ -21,7 +21,7 @@ const TAGS = [
 ]
 
 // eslint-disable-next-line no-unused-vars
-export default function MoodCheckIn({ user }) {
+export default function MoodCheckIn({ user, onReflectionResult, onCheckinSucces }) {
   const [moodValue, setMoodValue] = useState(3) // slider starts at middle
   const [selectedTags, setSelectedTags] = useState([])
   const [submitted, setSubmitted] = useState(false)
@@ -42,43 +42,48 @@ export default function MoodCheckIn({ user }) {
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
+  
     try {
+      // step 1: save the check-in
       await API.post('/mood/checkin', {
         mood_value: moodValue,
         tags: selectedTags,
         note: '',
       })
       setSubmitted(true)
+      if (onCheckinSucces) onCheckinSucces() // notify parent so streak can refresh
+  
+      // step 2: tell parent we're starting AI reflection
+      if (onReflectionResult) {
+        onReflectionResult({ loading: true, reflection: null, isCrisis: false })
+      }
+  
+      // step 3: request AI reflection (this can fail without breaking the check-in)
+      try {
+        const aiRes = await API.post('/ai/reflect', {
+          mood_value: moodValue,
+          tags: selectedTags,
+          note: '',
+        })
+        if (onReflectionResult) {
+          onReflectionResult({
+            loading: false,
+            reflection: aiRes.data.reflection,
+            isCrisis: aiRes.data.isCrisis,
+          })
+        }
+      } catch (aiErr) {
+        // AI failure should not surface as an error - check-in still saved
+        console.error('AI reflection failed:', aiErr)
+        if (onReflectionResult) {
+          onReflectionResult({ loading: false })
+        }
+      }
     } catch (err) {
       setError('Could not save check-in. Please try again.')
     } finally {
       setLoading(false)
     }
-  }
-
-  // animated success state
-  if (submitted) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center"
-      >
-        <motion.div
-          initial={{ scale: 0, rotate: -45 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.1 }}
-          className="flex justify-center mb-3"
-        >
-          <CheckCircle2 size={48} style={{ color: '#3AA76D' }} />
-        </motion.div>
-        <p className="font-bold text-gray-800 text-lg">Check-in saved!</p>
-        <p className="text-sm text-gray-400 mt-1">
-          Your reflection is being prepared...
-        </p>
-      </motion.div>
-    )
   }
 
   // compute slider fill percentage for gradient background

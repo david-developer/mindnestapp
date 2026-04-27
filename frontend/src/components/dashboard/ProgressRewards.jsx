@@ -16,14 +16,14 @@ const BADGES = [
   { id: 'champion',   name: 'Champion',  icon: '🏆', requiresCheckins: 100 },
 ]
 
-export default function ProgressRewards() {
+export default function ProgressRewards( refreshKey) {
   const [streak, setStreak] = useState(0)
   const [totalCheckins, setTotalCheckins] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [refreshKey])
 
   const fetchData = async () => {
     try {
