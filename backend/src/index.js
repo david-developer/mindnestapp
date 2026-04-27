@@ -4,6 +4,7 @@ const pool = require('./config/db')
 const authRoutes = require('./routes/auth')
 const moodRoutes = require('./routes/mood')
 const journalRoutes = require('./routes/journal')
+const aiRoutes = require('./routes/ai')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -14,6 +15,7 @@ app.use(express.json())
 app.use('/api/auth', authRoutes) // Authentication routes
 app.use('/api/mood', moodRoutes) // Mood routes
 app.use('/api/journal', journalRoutes) // Journal Routes
+app.use('/api/ai', aiRoutes) // AI routes
 
 app.get('/', (req, res) =>{
     res.json({message: 'MindNest API is running'})
