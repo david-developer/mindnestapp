@@ -61,4 +61,39 @@ const login = async (req, res) => {
     }
 }
 
-module.exports = { signup, login }
+// returns user info + aggregated stats for profile page
+const getProfile = async (req, res) => {
+    const userId = req.user.userId
+  
+    try {
+      // user basic info
+      const userResult = await pool.query(
+        'SELECT id, name, email, date_of_birth, created_at FROM users WHERE id = $1',
+        [userId]
+      )
+  
+      // aggregated stats
+      const statsResult = await pool.query(
+        `SELECT 
+           (SELECT COUNT(*) FROM mood_checkins WHERE user_id = $1) AS total_checkins,
+           (SELECT COUNT(*) FROM journal_entries WHERE user_id = $1) AS total_entries,
+           (SELECT COUNT(DISTINCT DATE_TRUNC('day', created_at)) 
+              FROM mood_checkins WHERE user_id = $1) AS active_days`,
+        [userId]
+      )
+  
+      res.json({
+        user: userResult.rows[0],
+        stats: {
+          total_checkins: Number(statsResult.rows[0].total_checkins),
+          total_entries: Number(statsResult.rows[0].total_entries),
+          active_days: Number(statsResult.rows[0].active_days),
+        },
+      })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  }
+  
+  module.exports = { signup, login, getProfile }
+

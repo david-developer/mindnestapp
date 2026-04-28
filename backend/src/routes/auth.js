@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const pool = require('../config/db')
-const { signup, login } = require('../controllers/authController')
+const { signup, login, getProfile } = require('../controllers/authController')
 const { protect } = require('../middleware/authMiddleware')
 
 
@@ -15,6 +15,7 @@ router.get('/me', protect, async (req, res) => {
 
 router.post('/signup', signup)
 router.post('/login', login)
+router.get('/profile', protect, getProfile)
 
 
 

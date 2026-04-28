@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars */
 import { motion } from 'framer-motion'
 import { AlertCircle, Phone, MessageCircle, MessageSquare, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+
 
 // hardcoded crisis resources - Turkish national lines
 const CRISIS_LINES = [
@@ -36,7 +38,10 @@ const ADDITIONAL_RESOURCES = [
     { id: 'forums', label: 'Community Forums', href: '#' },
 ]
 
+  
 export default function ResourcesHelp() {
+    const navigate = useNavigate() 
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -95,8 +100,11 @@ export default function ResourcesHelp() {
       <p className="text-sm text-gray-600 mb-3">
         Want to talk to someone? Our counselors are here to help.
       </p>
+      
 
       <button
+      
+        onClick={() => navigate('/counselors')}
         className="w-full py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 mb-4"
         style={{ background: 'linear-gradient(135deg, #3AA76D, #88C0F7)' }}
       >

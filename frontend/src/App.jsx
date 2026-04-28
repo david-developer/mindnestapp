@@ -4,10 +4,16 @@ import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoutes'
 import Journal from './pages/Journal'
+import Insights from './pages/Insights'
+import Profile from './pages/Profile'
+import Circle from './pages/Circle'
+import Counselors from './pages/Counselors'
+
 
 export default function APP(){
   return (
     <Routes>
+
       <Route path="/login" element= {<Login />} />0
       <Route path="/signup" element= {<Signup />} />
       <Route path="/dashboard" element= {
@@ -21,6 +27,31 @@ export default function APP(){
           <Journal />
         </PrivateRoute>
       } />
+
+      <Route path="/insights" element={
+        <PrivateRoute>
+        <Insights />
+      </PrivateRoute>
+    } />
+
+    <Route path="/profile" element={
+        <PrivateRoute>
+        <Profile />
+      </PrivateRoute>
+    } />
+
+    <Route path="/circle" element={
+        <PrivateRoute>
+        <Circle />
+      </PrivateRoute>
+    } />
+
+    <Route path="/counselors" element={
+        <PrivateRoute>
+        <Counselors />
+      </PrivateRoute>
+    } />
+      
 
     </Routes>
     )

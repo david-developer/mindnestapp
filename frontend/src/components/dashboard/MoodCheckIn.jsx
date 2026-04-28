@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, BookPlus, CheckCircle2 } from 'lucide-react'
+import { Sparkles, BookPlus, CheckCircle2, Users } from 'lucide-react'
 import API from '../../api/axios'
 
 // mood levels mapped to emoji, labels, and colors
@@ -21,12 +21,14 @@ const TAGS = [
 ]
 
 // eslint-disable-next-line no-unused-vars
-export default function MoodCheckIn({ user, onReflectionResult, onCheckinSucces }) {
+export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess }) {
   const [moodValue, setMoodValue] = useState(3) // slider starts at middle
   const [selectedTags, setSelectedTags] = useState([])
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [shareWithCircle, setShareWithCircle] = useState(false)
+  const [shareMessage, setShareMessage] = useState('')
 
   // get the mood object that matches current slider value
   const currentMood = MOOD_LEVELS.find((m) => m.value === moodValue)
@@ -51,14 +53,28 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSucces 
         note: '',
       })
       setSubmitted(true)
-      if (onCheckinSucces) onCheckinSucces() // notify parent so streak can refresh
   
-      // step 2: tell parent we're starting AI reflection
+      // step 2: if user opted in, share to circle
+      // wrapped in its own try so a failed share doesn't break the check-in
+      if (shareWithCircle) {
+        try {
+          await API.post('/circle/share', {
+            mood_value: moodValue,
+            message: shareMessage.trim() || null,
+          })
+        } catch (shareErr) {
+          console.error('Could not share to circle:', shareErr)
+        }
+      }
+  
+      // step 3: tell parent to refresh dashboard data
+      if (onCheckinSuccess) onCheckinSuccess()
+  
+      // step 4: trigger AI reflection
       if (onReflectionResult) {
         onReflectionResult({ loading: true, reflection: null, isCrisis: false })
       }
   
-      // step 3: request AI reflection (this can fail without breaking the check-in)
       try {
         const aiRes = await API.post('/ai/reflect', {
           mood_value: moodValue,
@@ -73,7 +89,6 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSucces 
           })
         }
       } catch (aiErr) {
-        // AI failure should not surface as an error - check-in still saved
         console.error('AI reflection failed:', aiErr)
         if (onReflectionResult) {
           onReflectionResult({ loading: false })
@@ -184,6 +199,61 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSucces 
             )
           })}
         </div>
+      </div>
+
+      {/* share with circle toggle */}
+      <div className="mb-4 border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Users size={16} style={{ color: '#3AA76D' }} />
+            <span className="text-sm font-medium" style={{ color: '#253244' }}>
+              Share with circle
+            </span>
+          </div>
+
+          {/* iOS-style toggle */}
+          <button
+            onClick={() => setShareWithCircle((v) => !v)}
+            className="w-11 h-6 rounded-full p-0.5 transition-colors"
+            style={{
+              backgroundColor: shareWithCircle ? '#3AA76D' : '#d1d5db',
+            }}
+          >
+            <motion.div
+              animate={{ x: shareWithCircle ? 20 : 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="w-5 h-5 rounded-full bg-white shadow-md"
+            />
+          </button>
+        </div>
+
+        {/* optional message field - only shown when share is on */}
+        <AnimatePresence>
+          {shareWithCircle && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <input
+                type="text"
+                value={shareMessage}
+                onChange={(e) => setShareMessage(e.target.value)}
+                placeholder="Add a short message (optional)"
+                maxLength={120}
+                className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <p className="text-xs text-gray-400 mt-2">
+          {shareWithCircle
+            ? 'Friends will see only your mood and message.'
+            : 'Your check-in stays private by default.'}
+        </p>
       </div>
 
       {error && (

@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { createCheckin, getCheckins, getWeeklyMood, getStreak } = require('../controllers/moodController')
+const { createCheckin, getCheckins, getWeeklyMood, getStreak, getInsights } = require('../controllers/moodController')
 const { protect } = require('../middleware/authMiddleware')
 
 
@@ -9,5 +9,6 @@ router.post('/checkin', protect, createCheckin)
 router.get('/checkins', protect, getCheckins)
 router.get('/weekly', protect, getWeeklyMood)
 router.get('/streak', protect, getStreak)
+router.get('/insights', protect, getInsights)
 
 module.exports = router

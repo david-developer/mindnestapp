@@ -136,5 +136,75 @@ const getStreak = async (req, res) => {
   }
 }
 
-module.exports = { createCheckin, getCheckins, getWeeklyMood, getStreak }
+// returns full insights bundle: monthly trend, top tags, activity by day
+const getInsights = async (req, res) => {
+  const userId = req.user.userId
+
+  try {
+    // monthly trend - last 30 days with daily averages
+    const monthlyResult = await pool.query(
+      `SELECT 
+         DATE_TRUNC('day', created_at) AS day,
+         ROUND(AVG(mood_value)::numeric, 2) AS avg_mood,
+         COUNT(*) AS checkin_count
+       FROM mood_checkins
+       WHERE user_id = $1
+         AND created_at >= NOW() - INTERVAL '30 days'
+       GROUP BY day
+       ORDER BY day ASC`,
+      [userId]
+    )
+
+    // top tags - count occurrences across all check-ins
+    // UNNEST flattens the tags array so we can count individual tags
+    const tagsResult = await pool.query(
+      `SELECT 
+         tag,
+         COUNT(*) AS count
+       FROM mood_checkins, UNNEST(tags) AS tag
+       WHERE user_id = $1
+       GROUP BY tag
+       ORDER BY count DESC
+       LIMIT 8`,
+      [userId]
+    )
+
+    // activity by day of week - which days does the user check in most
+    // EXTRACT(DOW) returns 0=Sunday, 1=Monday, ..., 6=Saturday
+    const activityResult = await pool.query(
+      `SELECT 
+         EXTRACT(DOW FROM created_at)::int AS day_of_week,
+         COUNT(*) AS count,
+         ROUND(AVG(mood_value)::numeric, 2) AS avg_mood
+       FROM mood_checkins
+       WHERE user_id = $1
+       GROUP BY day_of_week
+       ORDER BY day_of_week ASC`,
+      [userId]
+    )
+
+    // overall stats for the page header
+    const statsResult = await pool.query(
+      `SELECT 
+         COUNT(*) AS total_checkins,
+         ROUND(AVG(mood_value)::numeric, 2) AS overall_avg
+       FROM mood_checkins
+       WHERE user_id = $1`,
+      [userId]
+    )
+
+    res.json({
+      monthly: monthlyResult.rows,
+      topTags: tagsResult.rows,
+      activity: activityResult.rows,
+      stats: statsResult.rows[0],
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+module.exports = { createCheckin, getCheckins, getWeeklyMood, getStreak, getInsights }
+
+
 
