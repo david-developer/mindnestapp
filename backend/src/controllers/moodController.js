@@ -204,7 +204,104 @@ const getInsights = async (req, res) => {
   }
 }
 
-module.exports = { createCheckin, getCheckins, getWeeklyMood, getStreak, getInsights }
+// determine if user should see counselor nudge based on mood patterns
+// returns: { shouldNudge: boolean, reason: string | null, lastDismissed: timestamp | null }
+const getNudgeStatus = async (req, res) => {
+  const userId = req.user.userId
+
+  try {
+    // get last 7 distinct days of check-ins, ordered newest first
+    // we use DISTINCT on day to avoid counting multiple same-day check-ins as separate days
+    const result = await pool.query(
+      `SELECT 
+         DATE_TRUNC('day', created_at) AS day,
+         MIN(mood_value) AS min_mood
+       FROM mood_checkins
+       WHERE user_id = $1
+         AND created_at >= NOW() - INTERVAL '7 days'
+       GROUP BY day
+       ORDER BY day DESC
+       LIMIT 7`,
+      [userId]
+    )
+
+    const days = result.rows.map(r => ({
+      day: r.day,
+      mood: Number(r.min_mood),
+    }))
+
+    // check the three trigger paths from option C
+    let shouldNudge = false
+    let reason = null
+
+    // path 1: 3 consecutive days <= 2
+    if (days.length >= 3) {
+      const recent3 = days.slice(0, 3)
+      if (recent3.every(d => d.mood <= 2)) {
+        shouldNudge = true
+        reason = '3 consecutive low-mood days'
+      }
+    }
+
+    // path 2: 5 of last 7 days <= 2
+    if (!shouldNudge && days.length >= 5) {
+      const lowDays = days.filter(d => d.mood <= 2).length
+      if (lowDays >= 5) {
+        shouldNudge = true
+        reason = '5 of 7 recent days were low'
+      }
+    }
+
+    // path 3: today is 1 (Struggling) and previous day was also <= 2
+    if (!shouldNudge && days.length >= 2) {
+      if (days[0].mood === 1 && days[1].mood <= 2) {
+        shouldNudge = true
+        reason = 'today is struggling after a low day'
+      }
+    }
+
+    // check if user dismissed nudge in the last 7 days
+    // we'll store dismissals in a simple table - if shouldNudge but recently dismissed, suppress
+    const dismissResult = await pool.query(
+      `SELECT created_at FROM nudge_dismissals
+       WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '7 days'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    )
+
+    const recentlyDismissed = dismissResult.rows.length > 0
+    if (recentlyDismissed) {
+      shouldNudge = false
+    }
+
+    res.json({
+      shouldNudge,
+      reason,
+      lastDismissed: dismissResult.rows[0]?.created_at || null,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// record that user dismissed the nudge
+const dismissNudge = async (req, res) => {
+  const userId = req.user.userId
+
+  try {
+    await pool.query(
+      `INSERT INTO nudge_dismissals (user_id) VALUES ($1)`,
+      [userId]
+    )
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+
+
+module.exports = { createCheckin, getCheckins, getWeeklyMood, getStreak, getInsights, getNudgeStatus, dismissNudge }
 
 
 

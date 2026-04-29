@@ -8,6 +8,7 @@ import ProgressRewards from '../components/dashboard/ProgressRewards'
 import ResourcesHelp from '../components/dashboard/ResourcesHelp'
 import AIReflection from '../components/dashboard/AIReflection'
 import CrisisCard from '../components/dashboard/CrisisCard'
+import CounselorNudge from '../components/dashboard/CounselorNudge'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -47,6 +48,8 @@ export default function Dashboard() {
         {!isCrisis && (reflection || isReflectionLoading) && (
           <AIReflection reflection={reflection} loading={isReflectionLoading} />
         )}
+
+        <CounselorNudge refreshKey={refreshKey} />
 
         <WeeklySparkline refreshKey={refreshKey} />
         <ProgressRewards refreshKey={refreshKey} />

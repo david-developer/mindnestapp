@@ -104,6 +104,18 @@ const createTables = async () => {
         console.log('✅ Counselor requests table created')
 
 
+        // nudge_dismissals - records when a user dismisses the counselor nudge
+        // used to rate-limit so we don't pester them
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS nudge_dismissals (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW()
+            )
+        `)
+        console.log('✅ Nudge dismissals table created')
+
+
         process.exit(0)
     } catch (err)   {
         console.error('Migration Failed:', err.message)
