@@ -1,8 +1,9 @@
 node_modules/
-.env
+.env*
 .env.local
 dist/
 .DS_Store
 docker-compose.yml
 .gitignorebackend/.env
 backend/ .env
+backend/.env
