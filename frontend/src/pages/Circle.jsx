@@ -1,8 +1,7 @@
-/* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Users, UserPlus, Search, X, Check, Clock, Mail, Send,
+  Users, UserPlus, Search, X, Check, Clock, Mail, Send, Trash2, EyeOff,
 } from 'lucide-react'
 import API from '../api/axios'
 import BottomNav from '../components/dashboard/BottomNav'
@@ -41,12 +40,18 @@ const timeAgo = (timestamp) => {
 }
 
 export default function Circle() {
-  const [tab, setTab] = useState('feed')  // 'feed' | 'friends' | 'requests'
+  // 'feed' | 'mine' | 'friends' | 'requests'
+  const [tab, setTab] = useState('feed')
   const [feed, setFeed] = useState([])
+  const [myShares, setMyShares] = useState([])
   const [friends, setFriends] = useState([])
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+
+  // confirmation states keyed by share id
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmHide, setConfirmHide] = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -55,12 +60,14 @@ export default function Circle() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [feedRes, friendsRes, requestsRes] = await Promise.all([
+      const [feedRes, myRes, friendsRes, requestsRes] = await Promise.all([
         API.get('/circle/feed'),
+        API.get('/circle/my-shares'),
         API.get('/circle/friends'),
         API.get('/circle/requests'),
       ])
       setFeed(feedRes.data)
+      setMyShares(myRes.data)
       setFriends(friendsRes.data)
       setRequests(requestsRes.data)
     } catch (err) {
@@ -73,10 +80,32 @@ export default function Circle() {
   const handleRequestAction = async (requestId, action) => {
     try {
       await API.put(`/circle/request/${requestId}`, { action })
-      // refetch all data so friends list updates if accepted
       fetchAll()
     } catch (err) {
       console.error('Could not respond to request:', err)
+    }
+  }
+
+  // hide a friend's share from your feed (soft hide)
+  const handleHideFromFeed = async (shareId) => {
+    try {
+      await API.post(`/circle/feed/hide/${shareId}`)
+      // optimistic update - remove from local state instantly
+      setFeed(prev => prev.filter(f => f.id !== shareId))
+      setConfirmHide(null)
+    } catch (err) {
+      console.error('Could not hide share:', err)
+    }
+  }
+
+  // delete one of your own shares (hard delete - removes for everyone)
+  const handleDeleteMyShare = async (shareId) => {
+    try {
+      await API.delete(`/circle/share/${shareId}`)
+      setMyShares(prev => prev.filter(s => s.id !== shareId))
+      setConfirmDelete(null)
+    } catch (err) {
+      console.error('Could not delete share:', err)
     }
   }
 
@@ -115,23 +144,29 @@ export default function Circle() {
           </motion.button>
         </div>
 
-        {/* tab strip */}
+        {/* tab strip - now 4 tabs */}
         <div className="max-w-lg mx-auto px-4 pb-2">
           <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
             <TabBtn active={tab === 'feed'} onClick={() => setTab('feed')}>
               Feed
             </TabBtn>
+            <TabBtn active={tab === 'mine'} onClick={() => setTab('mine')}>
+              Mine
+              {myShares.length > 0 && (
+                <span className="ml-1 text-xs opacity-60">{myShares.length}</span>
+              )}
+            </TabBtn>
             <TabBtn active={tab === 'friends'} onClick={() => setTab('friends')}>
               Friends
               {friends.length > 0 && (
-                <span className="ml-1.5 text-xs opacity-60">{friends.length}</span>
+                <span className="ml-1 text-xs opacity-60">{friends.length}</span>
               )}
             </TabBtn>
             <TabBtn active={tab === 'requests'} onClick={() => setTab('requests')}>
               Requests
               {requests.length > 0 && (
                 <span
-                  className="ml-1.5 text-xs px-1.5 py-0.5 rounded-full text-white"
+                  className="ml-1 text-xs px-1.5 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: '#ef4444' }}
                 >
                   {requests.length}
@@ -148,7 +183,7 @@ export default function Circle() {
           <p className="text-center text-gray-400 text-sm py-8">Loading...</p>
         )}
 
-        {/* FEED */}
+        {/* FEED TAB - shares from friends */}
         {!loading && tab === 'feed' && (
           <AnimatePresence mode="wait">
             {feed.length === 0 ? (
@@ -166,6 +201,7 @@ export default function Circle() {
                   key={share.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
                   transition={{ delay: idx * 0.05 }}
                   className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
                 >
@@ -178,7 +214,6 @@ export default function Circle() {
                       >
                         {getInitials(share.name)}
                       </div>
-                      {/* mood emoji badge */}
                       <div
                         className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white border-2 flex items-center justify-center text-xs"
                         style={{ borderColor: MOOD_COLOR[share.mood_value] }}
@@ -209,6 +244,38 @@ export default function Circle() {
                           {share.message}
                         </p>
                       )}
+
+                      {/* hide action - confirm before hiding */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        {confirmHide === share.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-gray-500 mr-auto">
+                              Hide from your feed?
+                            </span>
+                            <button
+                              onClick={() => setConfirmHide(null)}
+                              className="text-xs px-3 py-1 rounded-lg text-gray-600 hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleHideFromFeed(share.id)}
+                              className="text-xs px-3 py-1 rounded-lg text-white font-medium"
+                              style={{ backgroundColor: '#6b7280' }}
+                            >
+                              Hide
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmHide(share.id)}
+                            className="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1.5 transition"
+                          >
+                            <EyeOff size={12} />
+                            Hide from my feed
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -217,7 +284,101 @@ export default function Circle() {
           </AnimatePresence>
         )}
 
-        {/* FRIENDS */}
+        {/* MINE TAB - your own shares with delete option */}
+        {!loading && tab === 'mine' && (
+          <AnimatePresence mode="wait">
+            {myShares.length === 0 ? (
+              <EmptyState
+                key="empty-mine"
+                icon={<Send size={28} className="text-white" />}
+                title="You haven't shared yet"
+                subtitle="When you check in with the Share toggle on, your moods appear here. You can delete any of them anytime."
+              />
+            ) : (
+              myShares.map((share, idx) => (
+                <motion.div
+                  key={share.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* mood badge instead of avatar (it's you) */}
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-2xl shadow-sm"
+                      style={{
+                        backgroundColor: 'white',
+                        border: `2px solid ${MOOD_COLOR[share.mood_value]}`,
+                      }}
+                    >
+                      {MOOD_EMOJI[share.mood_value]}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p
+                          className="font-semibold"
+                          style={{ color: MOOD_COLOR[share.mood_value] }}
+                        >
+                          Feeling {MOOD_LABEL[share.mood_value]}
+                        </p>
+                        <p className="text-xs text-gray-400 shrink-0">
+                          {timeAgo(share.created_at)}
+                        </p>
+                      </div>
+
+                      {share.message ? (
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {share.message}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">
+                          No message attached
+                        </p>
+                      )}
+
+                      {/* delete with confirmation */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        {confirmDelete === share.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-gray-500 mr-auto">
+                              Delete this share?
+                            </span>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-xs px-3 py-1 rounded-lg text-gray-600 hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMyShare(share.id)}
+                              className="text-xs px-3 py-1 rounded-lg text-white font-medium"
+                              style={{ backgroundColor: '#ef4444' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(share.id)}
+                            className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1.5 transition"
+                          >
+                            <Trash2 size={12} />
+                            Delete this share
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        )}
+
+        {/* FRIENDS TAB */}
         {!loading && tab === 'friends' && (
           <AnimatePresence mode="wait">
             {friends.length === 0 ? (
@@ -256,7 +417,7 @@ export default function Circle() {
           </AnimatePresence>
         )}
 
-        {/* REQUESTS */}
+        {/* REQUESTS TAB */}
         {!loading && tab === 'requests' && (
           <AnimatePresence mode="wait">
             {requests.length === 0 ? (
@@ -326,7 +487,8 @@ export default function Circle() {
   )
 }
 
-// tab button component
+// ===== smaller components =====
+
 function TabBtn({ active, onClick, children }) {
   return (
     <button
@@ -343,7 +505,6 @@ function TabBtn({ active, onClick, children }) {
   )
 }
 
-// shared empty state component
 function EmptyState({ icon, title, subtitle, cta, onCta }) {
   return (
     <motion.div
@@ -373,7 +534,7 @@ function EmptyState({ icon, title, subtitle, cta, onCta }) {
   )
 }
 
-// add friend modal - searches users by email and sends request
+// add friend modal - debounced search
 function AddFriendModal({ open, onClose, onRequestSent }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -381,7 +542,6 @@ function AddFriendModal({ open, onClose, onRequestSent }) {
   const [sentTo, setSentTo] = useState(new Set())
   const [error, setError] = useState('')
 
-  // debounce search - wait 300ms after typing stops
   useEffect(() => {
     if (!query || query.length < 3) {
       setResults([])
@@ -405,7 +565,6 @@ function AddFriendModal({ open, onClose, onRequestSent }) {
   const handleSendRequest = async (userId) => {
     try {
       await API.post('/circle/request', { addressee_id: userId })
-      // mark as sent locally so button changes immediately
       setSentTo(prev => new Set(prev).add(userId))
       if (onRequestSent) onRequestSent()
     } catch (err) {
@@ -456,7 +615,6 @@ function AddFriendModal({ open, onClose, onRequestSent }) {
                 </button>
               </div>
 
-              {/* search input */}
               <div className="relative mb-4">
                 <Search
                   size={16}
@@ -476,7 +634,6 @@ function AddFriendModal({ open, onClose, onRequestSent }) {
                 <p className="text-red-500 text-xs mb-3">{error}</p>
               )}
 
-              {/* results */}
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {query.length > 0 && query.length < 3 && (
                   <p className="text-sm text-gray-400 text-center py-6">

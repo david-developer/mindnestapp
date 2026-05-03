@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect} from "react"
 import { useAuth } from "../../context/AuthContext"
-import { Plus, BookOpen, Share2, LogOut } from "lucide-react"
+import { Plus, BookOpen, LogOut } from "lucide-react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import API from '../../api/axios'
@@ -85,14 +85,7 @@ export default function Header({ user, refreshKey }) {
           <BookOpen size={20} />
         </button>
 
-        {/* share mood (placeholder for mood circle) */}
-        <button
-          
-          aria-label="Share Mood"
-          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition"
-        >
-          <Share2 size={20} />
-        </button> 
+       
 
         {/* logout */}
         {/* logout section */}
@@ -108,7 +101,7 @@ export default function Header({ user, refreshKey }) {
             >
               <LogOut size={18} className="text-gray-400 group-hover:text-red-500 transition" />
               <span className="font-medium text-gray-600 group-hover:text-red-500 transition">
-                Log out
+                
               </span>
             </button>
           ) : (

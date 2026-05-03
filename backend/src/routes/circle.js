@@ -8,6 +8,9 @@ const {
   getPendingRequests,
   shareMood,
   getCircleFeed,
+  getMyShares,
+  deleteMyShare,
+  hideShare,
 } = require('../controllers/circleController')
 const { protect } = require('../middleware/authMiddleware')
 
@@ -23,5 +26,8 @@ router.get('/requests', protect, getPendingRequests)
 // shares + feed
 router.post('/share', protect, shareMood)
 router.get('/feed', protect, getCircleFeed)
+router.get('/my-shares', protect, getMyShares)
+router.delete('/share/:id', protect, deleteMyShare)
+router.post('/feed/hide/:id', protect, hideShare)
 
 module.exports = router

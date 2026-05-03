@@ -115,6 +115,19 @@ const createTables = async () => {
         `)
         console.log('✅ Nudge dismissals table created')
 
+        // mood_share_hides - tracks which shares a user has hidden from their feed
+        // soft-hide model so the share itself is preserved for other viewers
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS mood_share_hides (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            share_id INTEGER REFERENCES mood_shares(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, share_id)
+            )
+        `)
+        console.log('✅ Mood share hides table created')
+
 
         process.exit(0)
     } catch (err)   {

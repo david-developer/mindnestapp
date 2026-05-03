@@ -1,12 +1,16 @@
 /* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, BookmarkPlus, Heart, MessageCircle } from 'lucide-react'
+import { Sparkles, BookmarkPlus, Heart, MessageCircle, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import API from '../../api/axios'
+import { useNavigate } from 'react-router-dom'
 
 export default function AIReflection({ reflection, loading }) {
   // typewriter effect: progressively reveal the text character by character
   const [displayText, setDisplayText] = useState('')
   const [isMarkedHelpful, setIsMarkedHelpful] = useState(false)
+  const [savedToJournal, setSavedToJournal] = useState(false)
+  const [savingJournal, setSavingJournal] = useState(false)
 
   useEffect(() => {
     if (!reflection) {
@@ -24,6 +28,32 @@ export default function AIReflection({ reflection, loading }) {
 
     return () => clearInterval(interval)
   }, [reflection])
+
+  // save the current AI reflection as a journal entry
+const handleSaveToJournal = async () => {
+  if (!reflection || savedToJournal) return
+  setSavingJournal(true)
+  try {
+    // generate a title with today's date
+    const today = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+    await API.post('/journal/entry', {
+      title: `Reflection — ${today}`,
+      content: reflection,
+    })
+    setSavedToJournal(true)
+  } catch (err) {
+    console.error('Failed to save to journal:', err)
+  } finally {
+    setSavingJournal(false)
+  }
+
+  
+}
+const navigate = useNavigate()
 
   return (
     <motion.div
@@ -95,10 +125,26 @@ export default function AIReflection({ reflection, loading }) {
                   className="flex gap-2 flex-wrap"
                 >
                   <button
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-                  >
-                    <BookmarkPlus size={14} />
-                    Save to Journal
+                     onClick={handleSaveToJournal}
+                     disabled={savingJournal || savedToJournal}
+                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-not-allowed"
+                     style={{
+                       borderColor: savedToJournal ? '#3AA76D' : '#e5e7eb',
+                       backgroundColor: savedToJournal ? 'rgba(58, 167, 109, 0.05)' : 'white',
+                       color: savedToJournal ? '#3AA76D' : '#6b7280',
+                     }}
+                   >
+                     {savedToJournal ? (
+                       <>
+                         <Check size={14} />
+                         Saved
+                       </>
+                     ) : (
+                       <>
+                         <BookmarkPlus size={14} />
+                         {savingJournal ? 'Saving...' : 'Save to Journal'}
+                       </>
+                     )}
                   </button>
 
                   <button
@@ -118,10 +164,11 @@ export default function AIReflection({ reflection, loading }) {
                   </button>
 
                   <button
+                    onClick={() => navigate('/counselors')}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
                   >
                     <MessageCircle size={14} />
-                    Discuss
+                    Discuss with counselor
                   </button>
                 </motion.div>
               )}
@@ -131,4 +178,4 @@ export default function AIReflection({ reflection, loading }) {
       </div>
     </motion.div>
   )
-}
+}  
