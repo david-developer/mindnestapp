@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import API from '../../api/axios'
 
+
 // returns greeting based on current time of day
 function getGreeting() {
   const hour = new Date().getHours()
@@ -18,6 +19,7 @@ export default function Header({ user, refreshKey }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [streak, setStreak] = useState(0)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   useEffect(() => {
     API.get('/mood/streak')
@@ -27,6 +29,11 @@ export default function Header({ user, refreshKey }) {
 
   // get just the first name for the greeting
   const firstName = user?.name?.split(' ')[0] || 'Friend'
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     // backdrop-blur creates the glassmorphism effect from the spec
@@ -62,6 +69,7 @@ export default function Header({ user, refreshKey }) {
       <div className="flex items-center gap-1">
         {/* check-in quick action */}
         <button
+          onClick={() => navigate('/circle')}
           aria-label="Check-in"
           className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition"
         >
@@ -79,20 +87,62 @@ export default function Header({ user, refreshKey }) {
 
         {/* share mood (placeholder for mood circle) */}
         <button
+          
           aria-label="Share Mood"
           className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition"
         >
           <Share2 size={20} />
-        </button>
+        </button> 
 
         {/* logout */}
-        <button
-          onClick={logout}
-          aria-label="Logout"
-          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+        {/* logout section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
         >
-          <LogOut size={18} />
-        </button>
+          {!showLogoutConfirm ? (
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              className="w-full bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-center gap-2 hover:bg-red-50 transition group"
+            >
+              <LogOut size={18} className="text-gray-400 group-hover:text-red-500 transition" />
+              <span className="font-medium text-gray-600 group-hover:text-red-500 transition">
+                Log out
+              </span>
+            </button>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-2xl p-5 shadow-sm border-2"
+              style={{ borderColor: '#FCA5A5' }}
+            >
+              <p className="font-semibold text-gray-800 text-center mb-1">
+                Log out?
+              </p>
+              <p className="text-sm text-gray-500 text-center mb-4">
+                You'll need to sign in again next time.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 py-2.5 rounded-xl text-white font-semibold shadow-md"
+                  style={{ backgroundColor: '#ef4444' }}
+                >
+                  Log out
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+        
       </div>
     </motion.header>
   )

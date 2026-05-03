@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom' // Link = React Router's an
 import { useAuth } from '../context/AuthContext' // gives us the login function
 import API from '../api/axios' // our configured axios instance
 
+
 export default function Login() {
   // controlled inputs — React tracks every keystroke
   const [email, setEmail] = useState('')
@@ -34,9 +35,18 @@ export default function Login() {
   }
 
   return (
+    
     <div className="min-h-screen bg-green-50 flex items-center justify-center">
       <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md">
-        <h1 className="text-3xl font-bold text-green-700 mb-2">MindNest 🌿</h1>
+      <h1 className="flex items-center text-3xl font-bold text-green-700 mb-2">
+         MindNest 
+      <img 
+        src="../clearmindnest_logo.png" 
+        alt="mindnest logo" 
+        className="h-25 w-20 ml-1 object-contain" 
+      />
+      </h1>
+
         <p className="text-gray-500 mb-6">Welcome back</p>
 
         {/* Only renders if there is an error */}

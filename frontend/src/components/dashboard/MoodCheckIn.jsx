@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, BookPlus, CheckCircle2, Users } from 'lucide-react'
 import API from '../../api/axios'
+import { useNavigate } from 'react-router-dom'
 
 // mood levels mapped to emoji, labels, and colors
 const MOOD_LEVELS = [
@@ -29,6 +30,7 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
   const [error, setError] = useState('')
   const [shareWithCircle, setShareWithCircle] = useState(false)
   const [shareMessage, setShareMessage] = useState('')
+  const navigate = useNavigate()
 
   // get the mood object that matches current slider value
   const currentMood = MOOD_LEVELS.find((m) => m.value === moodValue)
@@ -276,6 +278,7 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
         </motion.button>
 
         <motion.button
+          onClick={() => navigate ('/journal')}
           whileTap={{ scale: 0.95 }}
           className="px-4 py-3 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
           title="Add journal entry"

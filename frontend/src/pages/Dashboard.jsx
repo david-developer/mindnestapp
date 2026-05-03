@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from "../context/AuthContext"
 import Header from '../components/dashboard/Header'
 import BottomNav from '../components/dashboard/BottomNav'
+import InstallPrompt from '../components/InstallPrompt'
 import MoodCheckIn from '../components/dashboard/MoodCheckIn'
 import WeeklySparkline from '../components/dashboard/WeeklySparkline'
 import ProgressRewards from '../components/dashboard/ProgressRewards'
@@ -38,6 +39,7 @@ export default function Dashboard() {
       <Header user={user} refreshKey={refreshKey} />
 
       <main className="max-w-lg mx-auto px-4 pt-4 pb-24 space-y-4">
+        <InstallPrompt />
         <MoodCheckIn
           user={user}
           onReflectionResult={handleReflectionResult}
