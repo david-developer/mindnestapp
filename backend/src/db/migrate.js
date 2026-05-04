@@ -128,6 +128,15 @@ const createTables = async () => {
         `)
         console.log('✅ Mood share hides table created')
 
+        // add mood_value to journal_entries for emotional context
+        // uses ALTER TABLE so existing entries stay intact
+        await pool.query(`
+            ALTER TABLE journal_entries 
+            ADD COLUMN IF NOT EXISTS mood_value INTEGER 
+            CHECK (mood_value BETWEEN 1 AND 6)
+        `)
+        console.log('✅ Journal mood column added')
+
 
         process.exit(0)
     } catch (err)   {

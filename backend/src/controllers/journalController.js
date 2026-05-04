@@ -2,20 +2,20 @@ const pool = require('../config/db')
 
 // create new entries
 const createEntry = async (req, res) => {
-    const userId = req.user.userId
-    const { title, content } = req.body 
+  const userId = req.user.userId
+  const { title, content, mood_value } = req.body
 
-    try {
-        const result = await pool.query(
-            `INSERT INTO journal_entries (user_id, title, content)
-            VALUES ($1, $2, $3)
-            RETURNING *`,
-            [userId, title, content]
-        )
-        res.status(201).json(result.rows[0])
-    } catch (err) {
-        res.status(500).json({error: err.message})
-    }
+  try {
+    const result = await pool.query(
+      `INSERT INTO journal_entries (user_id, title, content, mood_value)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [userId, title, content, mood_value || null]
+    )
+    res.status(201).json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 }
 
 // get entries for logged-in user
