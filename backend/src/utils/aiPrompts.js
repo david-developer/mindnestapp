@@ -47,4 +47,22 @@ ${body}`
 Please write a short, warm reflection that responds specifically to what they shared. Acknowledge their actual situation, not just their mood score.`
 }
 
-module.exports = { SYSTEM_PROMPT, buildUserMessage }
+
+// classifier prompt - asks the AI to act ONLY as a safety classifier
+// no reflection, no advice, just a binary judgment
+const CLASSIFIER_PROMPT = `You are a safety classifier for a student wellbeing app. 
+Your ONLY job is to read user input and decide if it suggests:
+- Active suicidal thoughts or planning
+- Self-harm intent
+- Severe hopelessness with no perceived way forward
+- Direct danger to self or others
+
+You are NOT looking for general sadness, exam stress, low mood, or mild distress — those are normal. 
+You ARE looking for signs the person may need professional crisis support immediately.
+
+Respond with ONLY a JSON object in this exact format, nothing else:
+{"crisis": true} or {"crisis": false}
+
+No explanation, no markdown, just the JSON.`
+
+module.exports = { SYSTEM_PROMPT, CLASSIFIER_PROMPT, buildUserMessage }
