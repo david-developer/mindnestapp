@@ -96,4 +96,75 @@ const generateReflection = async (req, res) => {
   }
 }
 
-module.exports = { generateReflection }
+// generate a reflection on a specific journal entry
+// reads the full entry text to provide deeper, contextual response
+const reflectOnJournal = async (req, res) => {
+  const { entry_text, mood_value } = req.body
+
+  if (!entry_text || entry_text.trim().length < 10) {
+    return res.status(400).json({ 
+      error: 'Entry text too short for reflection' 
+    })
+  }
+
+  try {
+    // LAYER 1 + 2: same crisis safety as regular reflection
+    if (containsCrisisLanguage(entry_text)) {
+      console.log('Journal crisis detected by keyword filter')
+      return res.json({ isCrisis: true, reflection: null })
+    }
+
+    const isSemanticCrisis = await classifyCrisis(entry_text)
+    if (isSemanticCrisis) {
+      console.log('Journal crisis detected by semantic classifier')
+      return res.json({ isCrisis: true, reflection: null })
+    }
+
+    // build a journal-specific prompt
+    const moodLabels = {
+      1: 'Struggling', 2: 'Low', 3: 'Okay',
+      4: 'Good', 5: 'Happy', 6: 'Amazing',
+    }
+    const moodContext = mood_value 
+      ? `They tagged this entry with mood: ${moodLabels[mood_value]} (${mood_value}/6).` 
+      : ''
+
+    const userMessage = `A student wrote this journal entry:
+
+"${entry_text.trim()}"
+
+${moodContext}
+
+Read what they wrote carefully. Then write a brief, warm reflection that:
+- Acknowledges specific things they shared (not generic empathy)
+- Highlights one strength or insight you notice in their writing
+- Offers ONE gentle observation or question for further reflection
+- Stays under 100 words
+
+Respond as if you've truly read what they wrote.`
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENROUTER_MODEL || 'openai/gpt-oss-120b:free',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: 250,
+      temperature: 0.7,
+    })
+
+    const reflection = completion.choices[0].message.content.trim()
+
+    // LAYER 3: output safety scan
+    if (containsCrisisLanguage(reflection)) {
+      return res.json({ isCrisis: true, reflection: null })
+    }
+
+    res.json({ isCrisis: false, reflection })
+  } catch (err) {
+    console.error('Journal AI error:', err.message)
+    res.status(500).json({ error: 'Could not generate reflection' })
+  }
+}
+
+module.exports = { generateReflection, reflectOnJournal }
