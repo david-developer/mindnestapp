@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, BookPlus, CheckCircle2, Users } from 'lucide-react'
+import { Sparkles, BookPlus, CheckCircle2, Users, Pen } from 'lucide-react'
 import API from '../../api/axios'
 import { useNavigate } from 'react-router-dom'
 
@@ -30,7 +30,10 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
   const [error, setError] = useState('')
   const [shareWithCircle, setShareWithCircle] = useState(false)
   const [shareMessage, setShareMessage] = useState('')
+  const [note, setNote] = useState('')
+  const [showNote, setShowNote] = useState(false)
   const navigate = useNavigate()
+  
 
   // get the mood object that matches current slider value
   const currentMood = MOOD_LEVELS.find((m) => m.value === moodValue)
@@ -52,9 +55,12 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
       await API.post('/mood/checkin', {
         mood_value: moodValue,
         tags: selectedTags,
-        note: '',
+        note: note.trim(),
       })
       setSubmitted(true)
+      setNote('')
+      setShowNote(false)
+
   
       // step 2: if user opted in, share to circle
       // wrapped in its own try so a failed share doesn't break the check-in
@@ -81,7 +87,7 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
         const aiRes = await API.post('/ai/reflect', {
           mood_value: moodValue,
           tags: selectedTags,
-          note: '',
+          note: note.trim(),
         })
         if (onReflectionResult) {
           onReflectionResult({
@@ -156,16 +162,16 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
       {/* mood slider with colored fill */}
       <div className="mb-2">
       <input
-  type="range"
-  min="1"
-  max="6"
-  value={moodValue}
-  onChange={(e) => setMoodValue(Number(e.target.value))}
-  style={{
-    background: `linear-gradient(to right, #3AA76D 0%, #3AA76D ${fillPercent}%, #e5e7eb ${fillPercent}%, #e5e7eb 100%)`,
-  }}
-  className="w-full h-3 rounded-full appearance-none cursor-pointer outline-none"
-/>
+        type="range"
+        min="1"
+        max="6"
+        value={moodValue}
+        onChange={(e) => setMoodValue(Number(e.target.value))}
+        style={{
+          background: `linear-gradient(to right, #3AA76D 0%, #3AA76D ${fillPercent}%, #e5e7eb ${fillPercent}%, #e5e7eb 100%)`,
+        }}
+        className="w-full h-3 rounded-full appearance-none cursor-pointer outline-none"
+      />
         <div className="flex justify-between text-xs text-gray-400 mt-2">
           <span>Not great</span>
           <span>Amazing</span>
@@ -201,6 +207,42 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
             )
           })}
         </div>
+      </div>
+
+      {/* optional note - lets users add context for the AI */}
+      <div className="mb-4 border-t border-gray-100 pt-4">
+        <button
+          onClick={() => setShowNote(v => !v)}
+          className="text-sm font-medium flex items-center gap-1.5 transition"
+          style={{ color: showNote ? '#3AA76D' : '#6b7280' }}
+        >
+          <Pen size={14} />
+          {showNote ? 'Hide note' : "Add a note (optional)"}
+        </button>
+
+        <AnimatePresence>
+          {showNote && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What's on your mind? A sentence or two helps the AI understand..."
+                rows={3}
+                maxLength={500}
+                className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1 text-right">
+                {note.length}/500
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* share with circle toggle */}

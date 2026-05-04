@@ -27,7 +27,7 @@ const generateReflection = async (req, res) => {
     }
 
     // build the messages array
-    const userMessage = buildUserMessage(mood_value, tags)
+    const userMessage = buildUserMessage(mood_value, tags, note)
 
     // call OpenRouter with the chosen free model
     const completion = await openai.chat.completions.create({

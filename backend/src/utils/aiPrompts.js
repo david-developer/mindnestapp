@@ -19,7 +19,9 @@ You MUST NEVER:
 Tone: warm, calm, non-judgmental, like a supportive friend who listens.`
 
 // builds the user message based on check-in data
-const buildUserMessage = (moodValue, tags) => {
+// builds the user message based on check-in data
+// now includes the optional note for richer AI context
+const buildUserMessage = (moodValue, tags, note) => {
   const moodLabels = {
     1: 'Struggling', 2: 'Low', 3: 'Okay',
     4: 'Good', 5: 'Happy', 6: 'Amazing',
@@ -27,13 +29,22 @@ const buildUserMessage = (moodValue, tags) => {
 
   const moodLabel = moodLabels[moodValue] || 'Unknown'
   const tagText = tags && tags.length > 0
-    ? `Tags mentioned: ${tags.join(', ')}`
+    ? `Tags they mentioned: ${tags.join(', ')}`
     : 'No specific tags'
 
-  return `Current mood: ${moodLabel} (${moodValue}/6)
-${tagText}
+  // build the body conditionally based on whether a note exists
+  let body = `Current mood: ${moodLabel} (${moodValue}/6)
+${tagText}`
 
-Please write a short, warm reflection for this student.`
+  // if user wrote something, lead with it - it's the most important context
+  if (note && note.trim().length > 0) {
+    body = `What the student wrote: "${note.trim()}"
+${body}`
+  }
+
+  return `${body}
+
+Please write a short, warm reflection that responds specifically to what they shared. Acknowledge their actual situation, not just their mood score.`
 }
 
 module.exports = { SYSTEM_PROMPT, buildUserMessage }
