@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, X, Trash2, BookOpen, Pen, Sparkles, ChevronRight,
-  Lightbulb, Quote,
+  Lightbulb, Quote, MessageCircle,
 } from 'lucide-react'
 import API from '../api/axios'
 import BottomNav from '../components/dashboard/BottomNav'
@@ -47,6 +47,10 @@ export default function Journal() {
   // confirmation/expand states keyed by entry id
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+
+  // state for journal reflection feature
+  const [reflections, setReflections] = useState({})  // entry_id -> reflection text
+  const [loadingReflectionFor, setLoadingReflectionFor] = useState(null)
 
   // editor state
   const [title, setTitle] = useState('')
@@ -105,6 +109,29 @@ export default function Journal() {
       setConfirmDelete(null)
     } catch (err) {
       setError('Could not delete entry')
+    }
+  }
+
+  // generates an AI reflection on a specific journal entry
+  const handleReflectOnEntry = async (entry) => {
+    if (reflections[entry.id]) return  // already reflected
+    setLoadingReflectionFor(entry.id)
+    try {
+      const res = await API.post('/ai/reflect-journal', {
+        entry_text: entry.content,
+        mood_value: entry.mood_value,
+      })
+      setReflections(prev => ({
+        ...prev,
+        [entry.id]: {
+          text: res.data.reflection,
+          isCrisis: res.data.isCrisis,
+        },
+      }))
+    } catch (err) {
+      console.error('Reflection failed:', err)
+    } finally {
+      setLoadingReflectionFor(null)
     }
   }
 
@@ -295,6 +322,7 @@ export default function Journal() {
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="min-w-0 flex-1 flex items-start gap-3">
+
                         {/* mood badge - shows entry's mood at a glance */}
                         {mood ? (
                           <div
@@ -369,12 +397,65 @@ export default function Journal() {
                         transition={{ duration: 0.2 }}
                         className="border-t border-gray-100 overflow-hidden"
                       >
-                        <div className="px-5 py-3 flex items-center justify-end gap-2">
+                        {/* AI reflection display */}
+                        {reflections[entry.id] && (
+                          <div
+                            className="px-5 py-4 border-b border-gray-100"
+                            style={{ backgroundColor: '#F8FFF9' }}
+                          >
+                            {reflections[entry.id].isCrisis ? (
+                              <div className="flex items-start gap-2">
+                                <span className="text-lg">💛</span>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  What you shared is heavy. Please reach out for support — 
+                                  you don't have to carry this alone.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-2">
+                                <Sparkles
+                                  size={16}
+                                  style={{ color: '#3AA76D' }}
+                                  className="shrink-0 mt-0.5"
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold mb-1" style={{ color: '#3AA76D' }}>
+                                    Companion's reflection
+                                  </p>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {reflections[entry.id].text}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* action row */}
+                        <div className="px-5 py-3 flex items-center justify-between gap-2 flex-wrap">
+                          {/* reflect button - only show if not yet reflected */}
+                          {!reflections[entry.id] && (
+                            <button
+                              onClick={() => handleReflectOnEntry(entry)}
+                              disabled={loadingReflectionFor === entry.id}
+                              className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50"
+                              style={{
+                                backgroundColor: 'rgba(58, 167, 109, 0.1)',
+                                color: '#3AA76D',
+                              }}
+                            >
+                              <MessageCircle size={14} />
+                              {loadingReflectionFor === entry.id ? 'Reflecting...' : 'Reflect on this'}
+                            </button>
+                          )}
+
+                          {/* spacer when reflected */}
+                          {reflections[entry.id] && <div />}
+
+                          {/* delete confirmation flow */}
                           {isConfirming ? (
-                            <>
-                              <span className="text-xs text-gray-500 mr-auto">
-                                Delete this entry?
-                              </span>
+                            <div className="flex items-center gap-2 ml-auto">
+                              <span className="text-xs text-gray-500">Delete this entry?</span>
                               <button
                                 onClick={() => setConfirmDelete(null)}
                                 className="text-xs px-3 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100"
@@ -388,11 +469,11 @@ export default function Journal() {
                               >
                                 Delete
                               </button>
-                            </>
+                            </div>
                           ) : (
                             <button
                               onClick={() => setConfirmDelete(entry.id)}
-                              className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 flex items-center gap-1.5 transition"
+                              className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 flex items-center gap-1.5 transition ml-auto"
                             >
                               <Trash2 size={14} />
                               Delete
