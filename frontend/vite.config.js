@@ -54,15 +54,15 @@ export default defineConfig({
             },
           },
           {
-            // API calls - network first, fall back to cache when offline
-            urlPattern: /^http:\/\/localhost:5000\/api\//,
+            // matches both local dev and Railway production API
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/') || url.hostname.includes('railway.app'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               networkTimeoutSeconds: 5,
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 1 day
+                maxAgeSeconds: 60 * 60 * 24,
               },
             },
           },
