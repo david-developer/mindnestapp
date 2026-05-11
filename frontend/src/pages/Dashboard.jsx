@@ -16,17 +16,24 @@ export default function Dashboard() {
 
   // shared reflection state
   const [reflection, setReflection] = useState(null)
-  const [isCrisis, setIsCrisis] = useState(false)
-  const [isReflectionLoading, setIsReflectionLoading] = useState(false)
+const [isCrisis, setIsCrisis] = useState(false)
+const [isReflectionLoading, setIsReflectionLoading] = useState(false)
+// keep context from the check-in so AIReflection can save a full entry
+const [reflectionContext, setReflectionContext] = useState({
+  note: '',
+  moodValue: null,
+  tags: [],
+})
 
   // refresh counter - increments after each check-in
   // any component that depends on it re-fetches its data
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const handleReflectionResult = ({ reflection, isCrisis, loading }) => {
+  const handleReflectionResult = ({ reflection, isCrisis, loading, context }) => {
     if (loading !== undefined) setIsReflectionLoading(loading)
     if (reflection !== undefined) setReflection(reflection)
     if (isCrisis !== undefined) setIsCrisis(isCrisis)
+    if (context) setReflectionContext(context)
   }
 
   // called by MoodCheckIn after a successful check-in
@@ -48,8 +55,14 @@ export default function Dashboard() {
 
         {isCrisis && <CrisisCard />}
         {!isCrisis && (reflection || isReflectionLoading) && (
-          <AIReflection reflection={reflection} loading={isReflectionLoading} />
-        )}
+          <AIReflection
+          reflection={reflection}
+          loading={isReflectionLoading}
+          userNote={reflectionContext.note}
+          moodValue={reflectionContext.moodValue}
+          selectedTags={reflectionContext.tags}
+        />
+      )}
 
         <CounselorNudge refreshKey={refreshKey} />
 

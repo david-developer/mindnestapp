@@ -94,6 +94,11 @@ export default function MoodCheckIn({ user, onReflectionResult, onCheckinSuccess
             loading: false,
             reflection: aiRes.data.reflection,
             isCrisis: aiRes.data.isCrisis,
+            context: {
+              note: note.trim(),
+              moodValue: moodValue,
+              tags: selectedTags,
+            },
           })
         }
       } catch (aiErr) {

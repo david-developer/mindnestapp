@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import API from '../../api/axios'
 import { useNavigate } from 'react-router-dom'
 
-export default function AIReflection({ reflection, loading }) {
+export default function AIReflection({ reflection, loading, userNote, moodValue, selectedTags }) {
   // typewriter effect: progressively reveal the text character by character
   const [displayText, setDisplayText] = useState('')
   const [isMarkedHelpful, setIsMarkedHelpful] = useState(false)
@@ -29,20 +29,33 @@ export default function AIReflection({ reflection, loading }) {
     return () => clearInterval(interval)
   }, [reflection])
 
-  // save the current AI reflection as a journal entry
+  // save the current AI reflection and user notte as a journal entry
+
 const handleSaveToJournal = async () => {
   if (!reflection || savedToJournal) return
   setSavingJournal(true)
   try {
-    // generate a title with today's date
-    const today = new Date().toLocaleDateString('en-US', {
+    // build a structured entry body with user's note and AI's response
+    const dateStr = new Date().toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     })
+
+    // compose content: include user's note if present, then AI's reflection
+    let content = ''
+    if (userNote && userNote.trim()) {
+      content += `What I wrote:\n${userNote.trim()}\n\n`
+    }
+    if (selectedTags && selectedTags.length > 0) {
+      content += `Tags: ${selectedTags.join(', ')}\n\n`
+    }
+    content += `Companion's reflection:\n${reflection}`
+
     await API.post('/journal/entry', {
-      title: `Reflection — ${today}`,
-      content: reflection,
+      title: `Reflection — ${dateStr}`,
+      content,
+      mood_value: moodValue || null,
     })
     setSavedToJournal(true)
   } catch (err) {
@@ -50,8 +63,6 @@ const handleSaveToJournal = async () => {
   } finally {
     setSavingJournal(false)
   }
-
-  
 }
 const navigate = useNavigate()
 
