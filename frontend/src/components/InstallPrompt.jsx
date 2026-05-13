@@ -1,40 +1,54 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, X, Smartphone } from 'lucide-react'
+import { Download, X, Smartphone, Share2, Plus } from 'lucide-react'
 
 const STORAGE_KEY = 'mindnest_install_dismissed'
+
+const isIOS = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent)
+
+const isInStandaloneMode = () =>
+  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
 
 export default function InstallPrompt() {
   // the deferred install event from the browser
   const [installEvent, setInstallEvent] = useState(null)
   // whether to show the banner
   const [show, setShow] = useState(false)
+  const [isIOSDevice, setIsIOSDevice] = useState(false)
 
   useEffect(() => {
-     // respect prior dismissal
-  if (localStorage.getItem(STORAGE_KEY) === 'true') return
+    setIsIOSDevice(isIOS())
 
-  // already installed - don't show prompt
-  if (window.matchMedia('(display-mode: standalone)').matches) return
+    // respect prior dismissal
+    if (localStorage.getItem(STORAGE_KEY) === 'true') return
 
-  // check if the event already fired before this component mounted
-  if (window.__deferredInstallPrompt) {
-    setInstallEvent(window.__deferredInstallPrompt)
-    setTimeout(() => setShow(true), 3000)
-    return
-  }
+    // already installed - don't show prompt
+    if (isInStandaloneMode()) return
 
-  // otherwise wait for the custom event
-  const handler = () => {
+    // iOS Safari has no beforeinstallprompt, so we show manual install instructions
+    if (isIOS()) {
+      setTimeout(() => setShow(true), 3000)
+      return
+    }
+
+    // check if the event already fired before this component mounted
     if (window.__deferredInstallPrompt) {
       setInstallEvent(window.__deferredInstallPrompt)
       setTimeout(() => setShow(true), 3000)
+      return
     }
-  }
 
-  window.addEventListener('pwa-install-available', handler)
-  return () => window.removeEventListener('pwa-install-available', handler)
-}, [])
+    // otherwise wait for the custom event
+    const handler = () => {
+      if (window.__deferredInstallPrompt) {
+        setInstallEvent(window.__deferredInstallPrompt)
+        setTimeout(() => setShow(true), 3000)
+      }
+    }
+
+    window.addEventListener('pwa-install-available', handler)
+    return () => window.removeEventListener('pwa-install-available', handler)
+  }, [])
 
   const handleInstall = async () => {
     if (!installEvent) return
@@ -62,7 +76,7 @@ export default function InstallPrompt() {
   }
 
   // don't render anything if not ready or already installed
-  if (!show || !installEvent) return null
+  if (!show || (!installEvent && !isIOSDevice)) return null
 
   return (
     <AnimatePresence>
@@ -77,13 +91,11 @@ export default function InstallPrompt() {
           borderColor: '#3AA76D',
         }}
       >
-        {/* decorative gradient blob */}
         <div
           className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20"
           style={{ background: 'linear-gradient(135deg, #3AA76D, #88C0F7)' }}
         />
 
-        {/* dismiss button */}
         <button
           onClick={handleDismiss}
           className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition"
@@ -93,7 +105,6 @@ export default function InstallPrompt() {
         </button>
 
         <div className="relative z-10 flex items-center gap-3 pr-6">
-          {/* gradient icon bubble */}
           <motion.div
             animate={{ y: [0, -3, 0] }}
             transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
@@ -107,20 +118,38 @@ export default function InstallPrompt() {
             <p className="font-bold text-sm" style={{ color: '#253244' }}>
               Install MindNest
             </p>
-            <p className="text-xs text-gray-500 leading-snug mt-0.5">
-              Add to your home screen for quick check-ins.
-            </p>
+
+            {isIOSDevice ? (
+              <p className="text-xs text-gray-500 leading-snug mt-0.5 flex items-center gap-1 flex-wrap">
+                Tap <Share2 size={12} /> then <Plus size={12} /> Add to Home Screen.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 leading-snug mt-0.5">
+                Add to your home screen for quick check-ins.
+              </p>
+            )}
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleInstall}
-            className="shrink-0 px-3 py-2 rounded-xl text-white text-xs font-semibold flex items-center gap-1.5 shadow-md"
-            style={{ background: 'linear-gradient(135deg, #3AA76D, #88C0F7)' }}
-          >
-            <Download size={14} />
-            Install
-          </motion.button>
+          {isIOSDevice ? (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleDismiss}
+              className="shrink-0 px-3 py-2 rounded-xl text-white text-xs font-semibold shadow-md"
+              style={{ background: 'linear-gradient(135deg, #3AA76D, #88C0F7)' }}
+            >
+              Got it
+            </motion.button>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleInstall}
+              className="shrink-0 px-3 py-2 rounded-xl text-white text-xs font-semibold flex items-center gap-1.5 shadow-md"
+              style={{ background: 'linear-gradient(135deg, #3AA76D, #88C0F7)' }}
+            >
+              <Download size={14} />
+              Install
+            </motion.button>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>

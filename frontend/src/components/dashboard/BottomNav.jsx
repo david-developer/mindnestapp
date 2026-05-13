@@ -13,7 +13,7 @@ export default function BottomNav() {
     const navigate = useNavigate()
 
     return (
-        <nav className=" flex-col bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex justify-center">
+        <nav className="fixed items-center flex flex-col bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100  justify-center">
             <div className="max-w-lg mc-auto flex items-center justify-around py-2">
                 {navItems.map((item) => {
                     //check if nav item mathces the curremt page
