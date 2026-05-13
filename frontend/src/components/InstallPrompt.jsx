@@ -11,29 +11,30 @@ export default function InstallPrompt() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
-    // user already dismissed? respect their choice forever
-    if (localStorage.getItem(STORAGE_KEY) === 'true') return
+     // respect prior dismissal
+  if (localStorage.getItem(STORAGE_KEY) === 'true') return
 
-    // listener for the browser's beforeinstallprompt event
-    // this fires when the browser thinks the app can be installed
-    const handler = (e) => {
-      // prevent the default Chrome mini-infobar
-      e.preventDefault()
-      // save the event so we can trigger it later
-      setInstallEvent(e)
-      // wait 3 seconds before showing - don't bombard new users
+  // already installed - don't show prompt
+  if (window.matchMedia('(display-mode: standalone)').matches) return
+
+  // check if the event already fired before this component mounted
+  if (window.__deferredInstallPrompt) {
+    setInstallEvent(window.__deferredInstallPrompt)
+    setTimeout(() => setShow(true), 3000)
+    return
+  }
+
+  // otherwise wait for the custom event
+  const handler = () => {
+    if (window.__deferredInstallPrompt) {
+      setInstallEvent(window.__deferredInstallPrompt)
       setTimeout(() => setShow(true), 3000)
     }
+  }
 
-    window.addEventListener('beforeinstallprompt', handler)
-
-    // also hide if app is already installed (running in standalone mode)
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setShow(false)
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  window.addEventListener('pwa-install-available', handler)
+  return () => window.removeEventListener('pwa-install-available', handler)
+}, [])
 
   const handleInstall = async () => {
     if (!installEvent) return
