@@ -10,6 +10,7 @@ import ResourcesHelp from '../components/dashboard/ResourcesHelp'
 import AIReflection from '../components/dashboard/AIReflection'
 import CrisisCard from '../components/dashboard/CrisisCard'
 import CounselorNudge from '../components/dashboard/CounselorNudge'
+import MoodCircle from '../components/dashboard/MoodCircle'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -68,6 +69,7 @@ const [reflectionContext, setReflectionContext] = useState({
 
         <WeeklySparkline refreshKey={refreshKey} />
         <ProgressRewards refreshKey={refreshKey} />
+        <MoodCircle refreshKey={refreshKey} />
         <ResourcesHelp />
       </main>
 
