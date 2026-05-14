@@ -160,6 +160,28 @@ const createTables = async () => {
         `)
         console.log('✅ Notifications index created')
 
+        // share_reactions - one reaction per user per mood share
+        // UNIQUE constraint enforces "one reaction per user per share"
+        // updating uses INSERT...ON CONFLICT to upgrade-or-change the emoji
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS share_reactions (
+            id SERIAL PRIMARY KEY,
+            share_id INTEGER REFERENCES mood_shares(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            emoji VARCHAR(10) NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(share_id, user_id)
+            )
+        `)
+        console.log('✅ Share reactions table created')
+        
+        // index for fast lookup of reactions on a share
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_share_reactions_share 
+            ON share_reactions(share_id)
+        `)
+        console.log('✅ Share reactions index created')
+
 
         process.exit(0)
     } catch (err)   {

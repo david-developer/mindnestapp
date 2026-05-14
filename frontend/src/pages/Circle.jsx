@@ -1,7 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Users, UserPlus, Search, X, Check, Clock, Mail, Send, Trash2, EyeOff,
+  Users, UserPlus, Search, X, Check, Clock, Mail, Send, Trash2, EyeOff, Smile,
 } from 'lucide-react'
 import API from '../api/axios'
 import BottomNav from '../components/dashboard/BottomNav'
@@ -17,6 +18,8 @@ const MOOD_COLOR = {
   1: '#ef4444', 2: '#f97316', 3: '#eab308',
   4: '#84cc16', 5: '#22c55e', 6: '#3AA76D',
 }
+// reaction emojis - must match backend ALLOWED_EMOJIS exactly
+const REACTION_EMOJIS = ['❤️', '🤗', '💪', '🌱', '🙏', '✨']
 
 // avatar initials helper
 const getInitials = (name) => {
@@ -53,6 +56,8 @@ export default function Circle() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [confirmHide, setConfirmHide] = useState(null)
 
+  const [pickerForShare, setPickerForShare] = useState(null) // id of share whose reaction picker is open
+
   useEffect(() => {
     fetchAll()
   }, [])
@@ -86,6 +91,42 @@ export default function Circle() {
     }
   }
 
+
+  // react to a friend's share (or change existing reaction)
+  const handleReact = async (shareId, emoji) => {
+    try {
+      await API.post(`/circle/share/${shareId}/react`, { emoji })
+      // optimistic update - patch the feed locally
+      setFeed(prev => prev.map(share => {
+        if (share.id !== shareId) return share
+        // remove this user's existing reaction, add the new one
+        const myUserId = share.reactions?.find(r => r.emoji === share.my_reaction)?.user_id
+        const filtered = (share.reactions || []).filter(r => r.user_id !== myUserId)
+        return {
+          ...share,
+          my_reaction: emoji,
+          reactions: [...filtered, { emoji, name: 'You' }],
+        }
+      }))
+      setPickerForShare(null)
+    } catch (err) {
+      console.error('Could not react:', err)
+    }
+  }
+
+  // remove the current user's reaction
+  const handleUnreact = async (shareId) => {
+    try {
+      await API.delete(`/circle/share/${shareId}/react`)
+      setFeed(prev => prev.map(share => {
+        if (share.id !== shareId) return share
+        const filtered = (share.reactions || []).filter(r => r.name !== 'You')
+        return { ...share, my_reaction: null, reactions: filtered }
+      }))
+    } catch (err) {
+      console.error('Could not unreact:', err)
+    }
+  }
   // hide a friend's share from your feed (soft hide)
   const handleHideFromFeed = async (shareId) => {
     try {
@@ -245,6 +286,89 @@ export default function Circle() {
                         </p>
                       )}
 
+                      {/* reactions row */}
+                      <div className="mt-3 flex items-center gap-2 flex-wrap">
+                        {/* existing reactions as bubbles */}
+                        {share.reactions && share.reactions.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {share.reactions.map((r, i) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                                style={{
+                                  backgroundColor: r.emoji === share.my_reaction ? '#F0FDF4' : '#f3f4f6',
+                                  border: r.emoji === share.my_reaction
+                                    ? '1px solid #3AA76D'
+                                    : '1px solid transparent',
+                                }}
+                                title={r.name}
+                              >
+                                <span>{r.emoji}</span>
+                                <span className="text-gray-600">{r.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* react button */}
+                        <button
+                          onClick={() => setPickerForShare(
+                            pickerForShare === share.id ? null : share.id
+                          )}
+                          className="ml-auto text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition"
+                          style={{
+                            backgroundColor: share.my_reaction ? '#F0FDF4' : 'transparent',
+                            color: share.my_reaction ? '#3AA76D' : '#6b7280',
+                            border: '1px dashed #e5e7eb',
+                          }}
+                        >
+                          <Smile size={12} />
+                          {share.my_reaction ? 'Change' : 'React'}
+                        </button>
+                      </div>
+
+                      {/* emoji picker - shown when this share is active */}
+                      <AnimatePresence>
+                        {pickerForShare === share.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden mt-2"
+                          >
+                            <div className="flex items-center gap-1.5 p-2 rounded-xl bg-gray-50">
+                              {REACTION_EMOJIS.map(emoji => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleReact(share.id, emoji)}
+                                  className="w-9 h-9 rounded-lg text-xl hover:bg-white transition"
+                                  style={{
+                                    backgroundColor: share.my_reaction === emoji ? 'white' : 'transparent',
+                                    boxShadow: share.my_reaction === emoji
+                                      ? '0 1px 3px rgba(0,0,0,0.1)'
+                                      : 'none',
+                                  }}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                              {/* unreact option if user already reacted */}
+                              {share.my_reaction && (
+                                <button
+                                  onClick={() => {
+                                    handleUnreact(share.id)
+                                    setPickerForShare(null)
+                                  }}
+                                  className="ml-auto text-xs text-gray-500 hover:text-red-500 px-2"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       {/* hide action - confirm before hiding */}
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         {confirmHide === share.id ? (
@@ -337,6 +461,22 @@ export default function Circle() {
                         <p className="text-xs text-gray-400 italic">
                           No message attached
                         </p>
+                      )}
+
+                      {/* show reactions received from friends */}
+                      {share.reactions && share.reactions.length > 0 && (
+                        <div className="mt-3 flex items-center gap-1 flex-wrap">
+                          {share.reactions.map((r, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-gray-50"
+                              title={r.name}
+                            >
+                              <span>{r.emoji}</span>
+                              <span className="text-gray-600">{r.name}</span>
+                            </span>
+                          ))}
+                        </div>
                       )}
 
                       {/* delete with confirmation */}

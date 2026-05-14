@@ -1,6 +1,8 @@
 const OpenAI = require('openai')
 const { containsCrisisLanguage } = require('../utils/crisisDetection')
+const { buildUserHistory } = require('../utils/userHistory')
 const { SYSTEM_PROMPT, CLASSIFIER_PROMPT, buildUserMessage } = require('../utils/aiPrompts')
+
 
 const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -68,8 +70,12 @@ const generateReflection = async (req, res) => {
       }
     }
 
+    // fetch user history for AI memory
+    const userId = req.user.userId
+    const history = await buildUserHistory(userId)
+
     // safe input - generate the actual reflection
-    const userMessage = buildUserMessage(mood_value, tags, note)
+    const userMessage = buildUserMessage(mood_value, tags, note, history)
 
     const completion = await openai.chat.completions.create({
       model: process.env.OPENROUTER_MODEL || 'openai/gpt-oss-120b:free',
@@ -120,6 +126,12 @@ const reflectOnJournal = async (req, res) => {
       return res.json({ isCrisis: true, reflection: null })
     }
 
+    // fetch user history for AI memory
+    const userId = req.user.userId
+    const history = await buildUserHistory(userId)
+
+  
+
     // build a journal-specific prompt
     const moodLabels = {
       1: 'Struggling', 2: 'Low', 3: 'Okay',
@@ -129,7 +141,12 @@ const reflectOnJournal = async (req, res) => {
       ? `They tagged this entry with mood: ${moodLabels[mood_value]} (${mood_value}/6).` 
       : ''
 
-    const userMessage = `A student wrote this journal entry:
+    // include history block if available
+    const historyBlock = history && history.trim().length > 0
+      ? `Recent context about this student:\n${history.trim()}\n\n---\n\n` 
+      : ''
+
+    const userMessage = `${historyBlock}A student wrote this journal entry:
 
 "${entry_text.trim()}"
 
@@ -139,32 +156,33 @@ Read what they wrote carefully. Then write a brief, warm reflection that:
 - Acknowledges specific things they shared (not generic empathy)
 - Highlights one strength or insight you notice in their writing
 - Offers ONE gentle observation or question for further reflection
+- References past context ONLY if directly relevant
 - Stays under 100 words
 
 Respond as if you've truly read what they wrote.`
 
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENROUTER_MODEL || 'openai/gpt-oss-120b:free',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: 250,
-      temperature: 0.7,
-    })
+          const completion = await openai.chat.completions.create({
+            model: process.env.OPENROUTER_MODEL || 'openai/gpt-oss-120b:free',
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user', content: userMessage },
+            ],
+            max_tokens: 250,
+            temperature: 0.7,
+          })
 
-    const reflection = completion.choices[0].message.content.trim()
+          const reflection = completion.choices[0].message.content.trim()
 
-    // LAYER 3: output safety scan
-    if (containsCrisisLanguage(reflection)) {
-      return res.json({ isCrisis: true, reflection: null })
-    }
+          // LAYER 3: output safety scan
+          if (containsCrisisLanguage(reflection)) {
+            return res.json({ isCrisis: true, reflection: null })
+          }
 
-    res.json({ isCrisis: false, reflection })
-  } catch (err) {
-    console.error('Journal AI error:', err.message)
-    res.status(500).json({ error: 'Could not generate reflection' })
+          res.json({ isCrisis: false, reflection })
+        } catch (err) {
+          console.error('Journal AI error:', err.message)
+          res.status(500).json({ error: 'Could not generate reflection' })
+        }
   }
-}
 
 module.exports = { generateReflection, reflectOnJournal }

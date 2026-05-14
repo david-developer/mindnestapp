@@ -232,26 +232,44 @@ const getCircleFeed = async (req, res) => {
     // join shares to users, filtered to people who are accepted friends
     const result = await pool.query(
       `SELECT 
-         ms.id, ms.mood_value, ms.message, ms.created_at,
-         u.id AS user_id, u.name, u.email
-       FROM mood_shares ms
-       JOIN users u ON u.id = ms.user_id
-       WHERE ms.user_id IN (
-         SELECT 
-           CASE 
-             WHEN f.requester_id = $1 THEN f.addressee_id
-             ELSE f.requester_id
-           END
-         FROM friendships f
-         WHERE f.status = 'accepted'
-           AND ($1 IN (f.requester_id, f.addressee_id))
-       )
-       AND ms.created_at >= NOW() - INTERVAL '7 days'
-       AND ms.id NOT IN (
+        ms.id, ms.mood_value, ms.message, ms.created_at,
+        u.id AS user_id, u.name, u.email,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'user_id', sr.user_id,
+              'name', ru.name,
+              'emoji', sr.emoji
+            )
+          ) FILTER (WHERE sr.id IS NOT NULL),
+          '[]'
+        ) AS reactions,
+        (
+          SELECT sr2.emoji 
+          FROM share_reactions sr2 
+          WHERE sr2.share_id = ms.id AND sr2.user_id = $1
+        ) AS my_reaction
+      FROM mood_shares ms
+      JOIN users u ON u.id = ms.user_id
+      LEFT JOIN share_reactions sr ON sr.share_id = ms.id
+      LEFT JOIN users ru ON ru.id = sr.user_id
+      WHERE ms.user_id IN (
+        SELECT 
+          CASE 
+            WHEN f.requester_id = $1 THEN f.addressee_id
+            ELSE f.requester_id
+          END
+        FROM friendships f
+        WHERE f.status = 'accepted'
+          AND ($1 IN (f.requester_id, f.addressee_id))
+      )
+      AND ms.created_at >= NOW() - INTERVAL '7 days'
+      AND ms.id NOT IN (
         SELECT share_id FROM mood_share_hides WHERE user_id = $1
       )
-       ORDER BY ms.created_at DESC
-       LIMIT 30`,
+      GROUP BY ms.id, u.id, u.name, u.email
+      ORDER BY ms.created_at DESC
+      LIMIT 30`,
       [userId]
     )
 
@@ -267,10 +285,24 @@ const getMyShares = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, mood_value, message, created_at
-       FROM mood_shares
-       WHERE user_id = $1
-       ORDER BY created_at DESC`,
+      `SELECT 
+         ms.id, ms.mood_value, ms.message, ms.created_at,
+         COALESCE(
+           json_agg(
+             json_build_object(
+               'user_id', sr.user_id,
+               'name', ru.name,
+               'emoji', sr.emoji
+             )
+           ) FILTER (WHERE sr.id IS NOT NULL),
+           '[]'
+         ) AS reactions
+       FROM mood_shares ms
+       LEFT JOIN share_reactions sr ON sr.share_id = ms.id
+       LEFT JOIN users ru ON ru.id = sr.user_id
+       WHERE ms.user_id = $1
+       GROUP BY ms.id
+       ORDER BY ms.created_at DESC`,
       [userId]
     )
     res.json(result.rows)
@@ -321,6 +353,115 @@ const hideShare = async (req, res) => {
   }
 }
 
+// allowed reaction emojis - validated server-side to prevent abuse
+// hardcoded list matches the frontend picker
+const ALLOWED_EMOJIS = ['❤️', '🤗', '💪', '🌱', '🙏', '✨']
+
+// add or update the current user's reaction to a share
+// uses INSERT...ON CONFLICT to either add or change their existing reaction
+const reactToShare = async (req, res) => {
+  const userId = req.user.userId
+  const { id } = req.params  // share id
+  const { emoji } = req.body
+
+  // validate emoji is in our allowed list
+  if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
+    return res.status(400).json({ error: 'Invalid emoji' })
+  }
+
+  try {
+    // verify share exists and get its owner (so we can notify them)
+    const shareResult = await pool.query(
+      `SELECT user_id FROM mood_shares WHERE id = $1`,
+      [id]
+    )
+    if (shareResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Share not found' })
+    }
+    const shareOwnerId = shareResult.rows[0].user_id
+
+    // can't react to your own share - prevents inflated counts
+    if (shareOwnerId === userId) {
+      return res.status(400).json({ error: 'Cannot react to your own share' })
+    }
+
+    // upsert: insert OR update existing reaction if user changed their mind
+    // checks if this is a NEW reaction (no existing row) so we only notify once
+    const existingResult = await pool.query(
+      `SELECT emoji FROM share_reactions WHERE share_id = $1 AND user_id = $2`,
+      [id, userId]
+    )
+    const isNew = existingResult.rows.length === 0
+
+    await pool.query(
+      `INSERT INTO share_reactions (share_id, user_id, emoji)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (share_id, user_id)
+       DO UPDATE SET emoji = EXCLUDED.emoji, created_at = NOW()`,
+      [id, userId, emoji]
+    )
+
+    // notify the share owner ONLY on first reaction from this person
+    // avoids spam if user keeps changing their reaction
+    if (isNew) {
+      const reactorResult = await pool.query(
+        'SELECT name FROM users WHERE id = $1',
+        [userId]
+      )
+      await createNotification({
+        user_id: shareOwnerId,
+        type: 'mood_share_reaction',
+        title: `${reactorResult.rows[0].name} reacted ${emoji} to your share`,
+        body: null,
+        link: '/circle?tab=mine',
+      })
+    }
+
+    res.json({ success: true, emoji })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// remove the current user's reaction from a share
+const removeReaction = async (req, res) => {
+  const userId = req.user.userId
+  const { id } = req.params
+
+  try {
+    await pool.query(
+      `DELETE FROM share_reactions
+       WHERE share_id = $1 AND user_id = $2`,
+      [id, userId]
+    )
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// list all reactions for a specific share
+// returns who reacted and what - sender sees full list, viewers see counts
+const getShareReactions = async (req, res) => {
+  const { id } = req.params
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+         sr.emoji, sr.created_at,
+         u.id AS user_id, u.name
+       FROM share_reactions sr
+       JOIN users u ON u.id = sr.user_id
+       WHERE sr.share_id = $1
+       ORDER BY sr.created_at DESC`,
+      [id]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
 module.exports = {
   searchUserByEmail,
   sendFriendRequest,
@@ -332,4 +473,7 @@ module.exports = {
   getMyShares,
   deleteMyShare,
   hideShare,
+  reactToShare,
+  removeReaction,
+  getShareReactions,
 }

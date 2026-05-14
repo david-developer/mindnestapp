@@ -11,6 +11,9 @@ const {
   getMyShares,
   deleteMyShare,
   hideShare,
+  reactToShare,
+  removeReaction,
+  getShareReactions,
 } = require('../controllers/circleController')
 const { protect } = require('../middleware/authMiddleware')
 
@@ -29,5 +32,8 @@ router.get('/feed', protect, getCircleFeed)
 router.get('/my-shares', protect, getMyShares)
 router.delete('/share/:id', protect, deleteMyShare)
 router.post('/feed/hide/:id', protect, hideShare)
+router.post('/share/:id/react', protect, reactToShare)
+router.delete('/share/:id/react', protect, removeReaction)
+router.get('/share/:id/reactions', protect, getShareReactions)
 
 module.exports = router
