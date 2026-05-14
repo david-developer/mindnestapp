@@ -137,6 +137,29 @@ const createTables = async () => {
         `)
         console.log('✅ Journal mood column added')
 
+        // notifications - in-app notifications for users
+        // stores enough data to navigate to the source object without joins at read time
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            type VARCHAR(50) NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT,
+            link TEXT,
+            read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+            )
+        `)
+        console.log('✅ Notifications table created')
+        
+        // index for fast unread count queries - most common query
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_read 
+            ON notifications(user_id, read, created_at DESC)
+        `)
+        console.log('✅ Notifications index created')
+
 
         process.exit(0)
     } catch (err)   {

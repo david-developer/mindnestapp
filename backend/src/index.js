@@ -7,7 +7,7 @@ const journalRoutes = require('./routes/journal')
 const aiRoutes = require('./routes/ai')
 const circleRoutes = require('./routes/circle')
 const counselorRoutes = require('./routes/counselor')
-
+const notificationRoutes = require('./routes/notifications')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -28,6 +28,7 @@ app.use('/api/journal', journalRoutes) // Journal Routes
 app.use('/api/ai', aiRoutes) // AI routes
 app.use('/api/circle', circleRoutes) //mood circleapp.use('/api/counselors', counselorRoutes)
 app.use('/api/counselors', counselorRoutes) // counsellor routes
+app.use('/api/notifications', notificationRoutes)
 
 
 app.get('/', (req, res) =>{

@@ -1,4 +1,5 @@
 const pool = require('../config/db')
+const { createNotification } = require('../utils/notificationHelper')
 
 // save a new mood check-in for the logged-in user
 const createCheckin = async (req, res) => {
@@ -13,6 +14,36 @@ const createCheckin = async (req, res) => {
        RETURNING *`,
       [userId, mood_value, tags, note]
     )
+
+    // check if this check-in pushes the user to a streak milestone
+    // reuse the streak calculation we already have - just inline it briefly
+    const streakResult = await pool.query(
+      `SELECT COUNT(DISTINCT DATE_TRUNC('day', created_at)) AS streak
+      FROM mood_checkins
+      WHERE user_id = $1
+        AND created_at >= NOW() - INTERVAL '60 days'`,
+      [userId]
+    )
+    const currentStreak = Number(streakResult.rows[0].streak)
+
+    // fire notification only on specific milestone days
+    const milestones = {
+      3: 'You\'re on a 3-day streak! Keep it going.',
+      7: 'One full week of check-ins! Consistency matters.',
+      14: 'Two weeks strong. You\'re building a real habit.',
+      30: 'A whole month of check-ins. That\'s real growth.',
+      60: 'Sixty days. You\'re an inspiration.',
+    }
+
+    if (milestones[currentStreak]) {
+      await createNotification({
+        user_id: userId,
+        type: 'streak_milestone',
+        title: `${currentStreak}-day streak unlocked!`,
+        body: milestones[currentStreak],
+        link: '/',
+      })
+    }
 
     res.status(201).json(result.rows[0])
   } catch (err) {

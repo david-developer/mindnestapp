@@ -1,4 +1,5 @@
 const pool = require('../config/db')
+const { createNotification } = require('../utils/notificationHelper')
 
 // list all counselors with optional filtering by specialization or language
 const listCounselors = async (req, res) => {
@@ -95,6 +96,19 @@ const requestContact = async (req, res) => {
        RETURNING *`,
       [userId, counselor_id, message || null]
     )
+
+    // confirmation notification - reassures user the request was sent
+    const counselorInfo = await pool.query(
+      'SELECT name FROM counselors WHERE id = $1',
+      [counselor_id]
+    )
+    await createNotification({
+      user_id: userId,
+      type: 'counselor_update',
+      title: `Request sent to ${counselorInfo.rows[0].name}`,
+      body: 'They\'ll reach out to you soon',
+      link: '/counselors',
+    })
 
     res.status(201).json(result.rows[0])
   } catch (err) {

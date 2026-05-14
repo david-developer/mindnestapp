@@ -5,6 +5,7 @@ import { Plus, BookOpen, LogOut } from "lucide-react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import API from '../../api/axios'
+import NotificationBell from './NotificationBell'
 
 
 // returns greeting based on current time of day
@@ -65,16 +66,12 @@ export default function Header({ user, refreshKey }) {
         </motion.div>
       </div>
 
+      
+
       {/* right side: quick action icons */}
       <div className="flex items-center gap-1">
-        {/* check-in quick action */}
-        <button
-          onClick={() => navigate('/circle')}
-          aria-label="Check-in"
-          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition"
-        >
-          <Plus size={20} />
-        </button>
+      <NotificationBell />
+
 
         {/* journal quick action */}
         <button
@@ -134,6 +131,7 @@ export default function Header({ user, refreshKey }) {
               </div>
             </motion.div>
           )}
+          
         </motion.div>
         
       </div>

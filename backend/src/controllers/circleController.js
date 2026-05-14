@@ -1,10 +1,12 @@
 const pool = require('../config/db')
+const { createNotification } = require('../utils/notificationHelper')
 
 // search users by email - used when adding a friend
 // returns id, name, email but only if they aren't the current user
 const searchUserByEmail = async (req, res) => {
   const userId = req.user.userId
   const { email } = req.query
+  
 
   if (!email || email.trim().length < 3) {
     return res.json([])
@@ -55,6 +57,20 @@ const sendFriendRequest = async (req, res) => {
       [userId, addressee_id]
     )
 
+    // fire notification to the addressee
+    // fetch requester name for the notification text
+    const requester = await pool.query(
+      'SELECT name FROM users WHERE id = $1',
+      [userId]
+    )
+    await createNotification({
+      user_id: addressee_id,
+      type: 'friend_request',
+      title: `${requester.rows[0].name} sent you a friend request`,
+      body: 'Tap to view',
+      link: '/circle',
+    })
+
     res.status(201).json(result.rows[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -85,6 +101,21 @@ const respondToRequest = async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Request not found' })
+    }
+
+    // only fire notification on acceptance (not rejection)
+    if (newStatus === 'accepted') {
+      const accepter = await pool.query(
+        'SELECT name FROM users WHERE id = $1',
+        [userId]
+      )
+      await createNotification({
+        user_id: result.rows[0].requester_id,
+        type: 'friend_accepted',
+        title: `${accepter.rows[0].name} accepted your friend request`,
+        body: 'You can now see each other\'s shared moods',
+        link: '/circle',
+      })
     }
 
     res.json(result.rows[0])
@@ -154,6 +185,37 @@ const shareMood = async (req, res) => {
        VALUES ($1, $2, $3)
        RETURNING *`,
       [userId, mood_value, message || null]
+    )
+
+    // fire notification to every accepted friend
+    const sharerInfo = await pool.query(
+      'SELECT name FROM users WHERE id = $1',
+      [userId]
+    )
+    const friendsResult = await pool.query(
+      `SELECT 
+        CASE 
+          WHEN f.requester_id = $1 THEN f.addressee_id
+          ELSE f.requester_id
+        END AS friend_id
+      FROM friendships f
+      WHERE f.status = 'accepted'
+        AND ($1 IN (f.requester_id, f.addressee_id))`,
+      [userId]
+    )
+
+    // fire one notification per friend - fire and forget
+    // using Promise.all to do them in parallel
+    await Promise.all(
+      friendsResult.rows.map(row =>
+        createNotification({
+          user_id: row.friend_id,
+          type: 'mood_share',
+          title: `${sharerInfo.rows[0].name} shared their mood`,
+          body: message ? `"${message.substring(0, 80)}"` : null,
+          link: '/circle',
+        })
+      )
     )
 
     res.status(201).json(result.rows[0])
